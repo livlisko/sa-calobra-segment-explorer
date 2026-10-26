@@ -29,6 +29,7 @@ export default function RideWeekExplorer({ data, initialRideId }) {
   const [thresholdMode, setThresholdMode] = useState("watts");
   const selectedDefault = defaults.find((item) => Number(item.duration_s) === Number(duration));
   const [thresholdWatts, setThresholdWatts] = useState(selectedDefault?.threshold_w ?? 200);
+  const [thresholdDraft, setThresholdDraft] = useState(null);
 
   useEffect(() => {
     if (initialRideId && rides.some((ride) => ride.id === initialRideId)) setRideId(initialRideId);
@@ -36,7 +37,10 @@ export default function RideWeekExplorer({ data, initialRideId }) {
 
   useEffect(() => {
     const current = defaults.find((item) => Number(item.duration_s) === Number(duration));
-    if (current?.threshold_w != null) setThresholdWatts(Number(current.threshold_w));
+    if (current?.threshold_w != null) {
+      setThresholdWatts(Number(current.threshold_w));
+      setThresholdDraft(null);
+    }
   }, [duration, defaults]);
 
   const ride = rides.find((item) => item.id === rideId) ?? rides[0];
@@ -50,10 +54,27 @@ export default function RideWeekExplorer({ data, initialRideId }) {
   const selectedEfforts = effortsByRide.find((item) => item.ride.id === ride?.id)?.efforts ?? [];
   const weekCount = effortsByRide.reduce((sum, item) => sum + item.efforts.length, 0);
   const thresholdDisplay = thresholdMode === "watts" ? thresholdWatts : (thresholdWatts / FTP_W) * 100;
+  const thresholdMin = thresholdMode === "watts" ? 50 : 20;
+  const thresholdMax = thresholdMode === "watts" ? 800 : 300;
   const setThresholdDisplay = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return;
     setThresholdWatts(thresholdMode === "watts" ? numeric : (numeric / 100) * FTP_W);
+  };
+  const updateThresholdDraft = (value) => {
+    setThresholdDraft(value);
+    const numeric = Number(value);
+    if (value.trim() && Number.isFinite(numeric) && numeric >= thresholdMin && numeric <= thresholdMax) setThresholdDisplay(numeric);
+  };
+  const commitThresholdDraft = () => {
+    if (thresholdDraft == null) return;
+    const numeric = Number(thresholdDraft);
+    if (!thresholdDraft.trim() || !Number.isFinite(numeric)) {
+      setThresholdDraft(null);
+      return;
+    }
+    setThresholdDisplay(Math.min(thresholdMax, Math.max(thresholdMin, numeric)));
+    setThresholdDraft(null);
   };
   const summary = ride?.summary ?? {};
 
@@ -68,9 +89,9 @@ export default function RideWeekExplorer({ data, initialRideId }) {
         <div className="baseline-badges"><span>FTP 250 W</span><span>68 kg</span></div>
       </div>
 
-      <div className="ride-selector" role="tablist" aria-label="Choose a ride">
+      <div className="ride-selector" role="group" aria-label="Choose a ride">
         {rides.map((item, index) => (
-          <button type="button" role="tab" aria-selected={item.id === ride?.id} className={item.id === ride?.id ? "is-active" : ""} key={item.id} onClick={() => setRideId(item.id)}>
+          <button type="button" aria-pressed={item.id === ride?.id} className={item.id === ride?.id ? "is-active" : ""} key={item.id} onClick={() => setRideId(item.id)}>
             <span>Ride {index + 1}</span><strong>{item.short_label ?? item.label}</strong>
           </button>
         ))}
@@ -92,7 +113,7 @@ export default function RideWeekExplorer({ data, initialRideId }) {
         </div>
       </section>
 
-      {telemetryResource.loading ? <div className="chart-empty">Loading the full-ride FIT traces…</div> : null}
+      {telemetryResource.loading ? <div className="chart-empty telemetry-loading is-compact">Loading the full-ride FIT traces…</div> : null}
       {telemetryResource.error ? <div className="chart-empty">This ride’s telemetry could not be loaded.</div> : null}
       {telemetryResource.data ? <SynchronizedTelemetryChart telemetry={telemetryResource.data} title={`${ride?.label ?? "Ride"} telemetry`} compact /> : null}
 
@@ -113,14 +134,28 @@ export default function RideWeekExplorer({ data, initialRideId }) {
             <div className="threshold-input-wrap">
               <label>
                 <span>Threshold</span>
-                <input type="number" min={thresholdMode === "watts" ? 50 : 20} max={thresholdMode === "watts" ? 800 : 300} step={thresholdMode === "watts" ? 5 : 1} value={Math.round(thresholdDisplay)} onChange={(event) => setThresholdDisplay(event.target.value)} />
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={thresholdMin}
+                  max={thresholdMax}
+                  step={thresholdMode === "watts" ? 5 : 1}
+                  value={thresholdDraft ?? Math.round(thresholdDisplay)}
+                  aria-invalid={thresholdDraft != null && (!thresholdDraft.trim() || !Number.isFinite(Number(thresholdDraft)) || Number(thresholdDraft) < thresholdMin || Number(thresholdDraft) > thresholdMax)}
+                  onChange={(event) => updateThresholdDraft(event.target.value)}
+                  onBlur={commitThresholdDraft}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.currentTarget.blur();
+                    if (event.key === "Escape") setThresholdDraft(null);
+                  }}
+                />
               </label>
               <div className="unit-toggle" aria-label="Threshold unit">
-                <button type="button" className={thresholdMode === "watts" ? "is-active" : ""} onClick={() => setThresholdMode("watts")}>W</button>
-                <button type="button" className={thresholdMode === "pct" ? "is-active" : ""} onClick={() => setThresholdMode("pct")}>%FTP</button>
+                <button type="button" aria-pressed={thresholdMode === "watts"} className={thresholdMode === "watts" ? "is-active" : ""} onClick={() => { setThresholdDraft(null); setThresholdMode("watts"); }}>W</button>
+                <button type="button" aria-pressed={thresholdMode === "pct"} className={thresholdMode === "pct" ? "is-active" : ""} onClick={() => { setThresholdDraft(null); setThresholdMode("pct"); }}>%FTP</button>
               </div>
             </div>
-            <button className="reset-threshold" type="button" onClick={() => setThresholdWatts(Number(selectedDefault?.threshold_w ?? thresholdWatts))}>Reset default</button>
+            <button className="reset-threshold" type="button" onClick={() => { setThresholdDraft(null); setThresholdWatts(Number(selectedDefault?.threshold_w ?? thresholdWatts)); }}>Reset default</button>
           </div>
         </div>
 

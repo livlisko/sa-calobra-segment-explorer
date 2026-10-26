@@ -13,14 +13,14 @@ export default function AppHeader({ view, onViewChange, onOpenRail, onOpenMethod
         </div>
       </div>
       <nav className="view-tabs" aria-label="Explorer view">
-        <button type="button" className={view === "segments" ? "is-active" : ""} onClick={() => onViewChange("segments")}>
+        <button type="button" aria-pressed={view === "segments"} className={view === "segments" ? "is-active" : ""} onClick={() => onViewChange("segments")}>
           Segments
         </button>
-        <button type="button" className={view === "rides" ? "is-active" : ""} onClick={() => onViewChange("rides")}>
+        <button type="button" aria-pressed={view === "rides"} className={view === "rides" ? "is-active" : ""} onClick={() => onViewChange("rides")}>
           Ride &amp; week efforts
         </button>
       </nav>
-      <button className="method-button" type="button" onClick={onOpenMethodology}>
+      <button className="method-button" type="button" aria-label="Methods and sources" onClick={onOpenMethodology}>
         <InfoIcon />
         <span>Methods &amp; sources</span>
       </button>

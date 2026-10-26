@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDuration, formatNumber } from "../lib.js";
 
 function CoverageMessage({ population, segment }) {
@@ -27,9 +27,14 @@ export default function PeerComparison({ segment }) {
   const source = population === "camp" ? camp : following;
   const rows = source.rows ?? [];
   const ageGroups = useMemo(() => [...new Set(rows.map((row) => row.age_group).filter(Boolean))].sort(), [rows]);
-  const filteredRows = ageGroup === "all" ? rows : rows.filter((row) => row.age_group === ageGroup);
+  const effectiveAgeGroup = ageGroup === "all" || ageGroups.includes(ageGroup) ? ageGroup : "all";
+  const filteredRows = effectiveAgeGroup === "all" ? rows : rows.filter((row) => row.age_group === effectiveAgeGroup);
   const hasRank = filteredRows.some((row) => row.rank != null);
   const hasSourcePlace = !hasRank && filteredRows.some((row) => row.source_place != null);
+
+  useEffect(() => {
+    if (ageGroup !== effectiveAgeGroup) setAgeGroup(effectiveAgeGroup);
+  }, [ageGroup, effectiveAgeGroup]);
 
   return (
     <section className="mini-panel comparison-panel">
@@ -41,23 +46,23 @@ export default function PeerComparison({ segment }) {
         {ageGroups.length > 1 ? (
           <label className="select-label">
             <span>Age group</span>
-            <select value={ageGroup} onChange={(event) => setAgeGroup(event.target.value)}>
+            <select value={effectiveAgeGroup} onChange={(event) => setAgeGroup(event.target.value)}>
               <option value="all">Entire reported field</option>
               {ageGroups.map((group) => <option key={group} value={group}>{group}</option>)}
             </select>
           </label>
         ) : null}
       </div>
-      <div className="population-tabs" role="tablist" aria-label="Comparison population">
-        <button type="button" role="tab" aria-selected={population === "camp"} className={population === "camp" ? "is-active" : ""} onClick={() => setPopulation("camp")}>
+      <div className="population-tabs" role="group" aria-label="Comparison population">
+        <button type="button" aria-pressed={population === "camp"} className={population === "camp" ? "is-active" : ""} onClick={() => setPopulation("camp")}>
           Camp results {camp.field_n ? <span>{camp.field_n}</span> : null}
         </button>
-        <button type="button" role="tab" aria-selected={population === "following"} className={population === "following" ? "is-active" : ""} onClick={() => setPopulation("following")}>
+        <button type="button" aria-pressed={population === "following"} className={population === "following" ? "is-active" : ""} onClick={() => setPopulation("following")}>
           Strava Following {following.field_n ? <span>{following.field_n}</span> : null}
         </button>
       </div>
       {filteredRows.length ? (
-        <div className="table-scroll">
+        <div className="table-scroll" role="region" tabIndex="0" aria-label="Rider comparison table; scroll horizontally for more columns">
           <table>
             <thead>
               <tr>
@@ -92,6 +97,7 @@ export default function PeerComparison({ segment }) {
           </table>
         </div>
       ) : <CoverageMessage population={population} segment={segment} />}
+      {filteredRows.length ? <p className="table-scroll-hint">Swipe sideways for more columns.</p> : null}
       {source.note ? <p className="source-note">{source.note}</p> : null}
       {source.source_file ? <p className="source-note">Source: {source.source_file}</p> : null}
     </section>

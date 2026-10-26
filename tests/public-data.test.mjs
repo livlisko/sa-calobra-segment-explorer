@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { selectDistinctEfforts } from "../src/lib.js";
+import { annotateTelemetryRuns, createTelemetryPath, sampleSeries, selectDistinctEfforts } from "../src/lib.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DATA_ROOT = path.join(ROOT, "public", "data");
@@ -51,6 +51,23 @@ test("every ridden segment has trace metrics and a one-second coordinate-free se
     assert.equal(series[0].timeS, 0, segment.camp_name);
     walk(series, (key) => assert(!["latitude", "longitude", "position_lat", "position_long"].includes(key), `${segment.camp_name}: ${key}`));
   }
+});
+
+test("telemetry paths retain FIT continuity and missing-value breaks after sampling", () => {
+  const annotated = annotateTelemetryRuns([
+    { timeS: 0, continuityId: 1, powerW: 100, speedKph: 20 },
+    { timeS: 5, continuityId: 1, powerW: null, speedKph: 20 },
+    { timeS: 10, continuityId: 1, powerW: 110, speedKph: 21 },
+    { timeS: 15, continuityId: 2, gapBeforeS: 5, powerW: 120, speedKph: 22 },
+  ]);
+  const sampled = sampleSeries(annotated, 2);
+  const x = (value) => value;
+  const y = (value) => value;
+  const powerPath = createTelemetryPath(sampled, "power", x, y, 5);
+  const speedPath = createTelemetryPath(sampled, "speed", x, y, 5);
+
+  assert.equal((powerPath.match(/M/g) ?? []).length, 3, powerPath);
+  assert.equal((speedPath.match(/M/g) ?? []).length, 2, speedPath);
 });
 
 test("editable thresholds reproduce every audited default distinct-bout count", () => {

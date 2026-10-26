@@ -28,7 +28,7 @@ export default function PowerCurve({ points = [], title = "Power curve", accent 
   return (
     <section className="mini-panel power-curve-panel">
       <h3>{title}</h3>
-      <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} from ${formatDuration(minDuration)} to ${formatDuration(maxDuration)}`}>
+      <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" focusable="false">
         {[0, 0.5, 1].map((ratio) => (
           <g key={ratio}>
             <line className="chart-grid" x1={pad.left} x2={width - pad.right} y1={pad.top + ratio * (height - pad.top - pad.bottom)} y2={pad.top + ratio * (height - pad.top - pad.bottom)} />
@@ -44,6 +44,14 @@ export default function PowerCurve({ points = [], title = "Power curve", accent 
         <path d={path} fill="none" stroke={accent} strokeWidth="3" vectorEffect="non-scaling-stroke" />
         <text className="axis-caption" x={(pad.left + width - pad.right) / 2} y={height - 2} textAnchor="middle">Duration · logarithmic scale</text>
       </svg>
+      <dl className="sr-only">
+        {normalized.map((point) => (
+          <div key={point.duration}>
+            <dt>{formatDuration(point.duration)}</dt>
+            <dd>{formatNumber(point.power)} watts</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

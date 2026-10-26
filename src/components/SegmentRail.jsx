@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronIcon, CloseIcon } from "./Icons.jsx";
 
 function SegmentGroup({ group, selectedId, onSelect }) {
@@ -49,6 +49,9 @@ function SegmentGroup({ group, selectedId, onSelect }) {
 }
 
 export default function SegmentRail({ data, selectedId, onSelect, mobileOpen, onClose }) {
+  const railRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const previousFocusRef = useRef(null);
   const groupedRides = useMemo(() => {
     const rides = data?.rides ?? [];
     const segments = data?.segments ?? [];
@@ -58,6 +61,38 @@ export default function SegmentRail({ data, selectedId, onSelect, mobileOpen, on
     }));
   }, [data]);
 
+  useEffect(() => {
+    if (mobileOpen) {
+      previousFocusRef.current = document.activeElement;
+      const content = document.querySelector(".content-shell");
+      if (content) content.inert = true;
+      const containFocus = (event) => {
+        if (event.key !== "Tab" || !railRef.current) return;
+        const focusable = [...railRef.current.querySelectorAll('button:not([disabled]), a[href], select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+          .filter((element) => element.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+      document.addEventListener("keydown", containFocus);
+      closeButtonRef.current?.focus();
+      return () => {
+        document.removeEventListener("keydown", containFocus);
+        if (content) content.inert = false;
+      };
+    }
+    if (previousFocusRef.current instanceof HTMLElement) previousFocusRef.current.focus();
+    previousFocusRef.current = null;
+    return undefined;
+  }, [mobileOpen]);
+
   const selectAndClose = (id) => {
     onSelect(id);
     onClose?.();
@@ -66,13 +101,13 @@ export default function SegmentRail({ data, selectedId, onSelect, mobileOpen, on
   return (
     <>
       {mobileOpen ? <button className="rail-scrim" type="button" aria-label="Close segment picker" onClick={onClose} /> : null}
-      <aside className={`segment-rail ${mobileOpen ? "is-open" : ""}`} aria-label="Camp segments">
+      <aside ref={railRef} className={`segment-rail ${mobileOpen ? "is-open" : ""}`} aria-label="Camp segments" aria-modal={mobileOpen ? "true" : undefined} role={mobileOpen ? "dialog" : undefined}>
         <div className="rail-brand">
           <div>
             <strong>Sa Calobra Segment Explorer</strong>
             <span>Oct 18–23, 2026</span>
           </div>
-          <button className="icon-button rail-close" type="button" aria-label="Close segment picker" onClick={onClose}>
+          <button ref={closeButtonRef} className="icon-button rail-close" type="button" aria-label="Close segment picker" onClick={onClose}>
             <CloseIcon />
           </button>
         </div>

@@ -121,14 +121,14 @@ export default function SegmentOverview({ segment, ride, weekCurve, onOpenRide }
         {segment.boundary_note ? <span>{segment.boundary_note}</span> : null}
       </div>
 
-      {telemetryResource.loading ? <div className="chart-empty">Loading one-second FIT telemetry…</div> : null}
+      {telemetryResource.loading ? <div className="chart-empty telemetry-loading">Loading one-second FIT telemetry…</div> : null}
       {telemetryResource.error ? <div className="chart-empty">This effort’s telemetry could not be loaded.</div> : null}
       {telemetryResource.data ? <SynchronizedTelemetryChart telemetry={telemetryResource.data} title={`${segment.camp_name} telemetry`} /> : null}
 
       <div className="segment-detail-grid">
+        <PeerComparison segment={segment} />
         <PowerAnalysis segment={segment} weekCurve={weekCurve} />
         <PowerCurve points={segment.power_curve ?? []} title="Effort power curve" />
-        <PeerComparison segment={segment} />
       </div>
       <p className="data-footnote">Charts use FIT-recorded samples. Gaps and unresolved power samples break continuity; no line or rolling window bridges them.</p>
     </main>

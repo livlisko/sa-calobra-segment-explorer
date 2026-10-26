@@ -58,6 +58,59 @@ export function sampleSeries(values, maxPoints = 900) {
   return sampled;
 }
 
+const TELEMETRY_KEYS = ["power", "heartRate", "cadence", "speed"];
+
+export function annotateTelemetryRuns(values) {
+  const runCounters = Object.fromEntries(TELEMETRY_KEYS.map((key) => [key, 0]));
+  const wasValid = Object.fromEntries(TELEMETRY_KEYS.map((key) => [key, false]));
+  let previousContinuity = null;
+
+  return (values ?? []).map((sample) => {
+    const continuity = sample?.continuity_id ?? sample?.continuityId ?? null;
+    const gapBefore = Number(sample?.gap_before_s ?? sample?.gapBeforeS ?? 0);
+    const continuityChanged = previousContinuity != null && continuity != null && continuity !== previousContinuity;
+    const runIds = {};
+
+    for (const key of TELEMETRY_KEYS) {
+      const valid = valueAt(sample, key) != null;
+      if (!valid) {
+        wasValid[key] = false;
+        runIds[key] = null;
+        continue;
+      }
+      if (!wasValid[key] || continuityChanged || gapBefore > 0) runCounters[key] += 1;
+      runIds[key] = runCounters[key];
+      wasValid[key] = true;
+    }
+
+    previousContinuity = continuity;
+    return { ...sample, _runIds: runIds };
+  });
+}
+
+export function createTelemetryPath(samples, key, x, y, expectedStep) {
+  let path = "";
+  let previousElapsed = null;
+  let previousRunId = null;
+  for (const sample of samples) {
+    const elapsed = valueAt(sample, "elapsed");
+    const value = valueAt(sample, key);
+    if (elapsed == null || value == null) {
+      previousElapsed = null;
+      previousRunId = null;
+      continue;
+    }
+    const runId = sample?._runIds?.[key] ?? null;
+    const startsNew = previousElapsed == null
+      || (runId != null && previousRunId != null && runId !== previousRunId)
+      || elapsed - previousElapsed > expectedStep * 2.5;
+    path += `${startsNew ? "M" : "L"}${x(elapsed).toFixed(2)},${y(value).toFixed(2)} `;
+    previousElapsed = elapsed;
+    previousRunId = runId;
+  }
+  return path.trim();
+}
+
 export function lookupCurvePower(curve, durationSeconds) {
   const points = (curve ?? [])
     .map((point) => ({

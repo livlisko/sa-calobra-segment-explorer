@@ -1,16 +1,53 @@
+import { useEffect, useRef } from "react";
 import { CloseIcon } from "./Icons.jsx";
 
 export default function MethodologyPanel({ open, onClose, data }) {
+  const panelRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const previousFocusRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      previousFocusRef.current = document.activeElement;
+      const backgrounds = [document.querySelector(".segment-rail"), document.querySelector(".content-shell")].filter(Boolean);
+      backgrounds.forEach((element) => { element.inert = true; });
+      const containFocus = (event) => {
+        if (event.key !== "Tab" || !panelRef.current) return;
+        const focusable = [...panelRef.current.querySelectorAll('button:not([disabled]), a[href], select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+          .filter((element) => element.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+      document.addEventListener("keydown", containFocus);
+      closeButtonRef.current?.focus();
+      return () => {
+        document.removeEventListener("keydown", containFocus);
+        backgrounds.forEach((element) => { element.inert = false; });
+      };
+    }
+    if (previousFocusRef.current instanceof HTMLElement) previousFocusRef.current.focus();
+    previousFocusRef.current = null;
+    return undefined;
+  }, [open]);
+
   if (!open) return null;
   return (
     <div className="dialog-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="methodology-panel" role="dialog" aria-modal="true" aria-labelledby="methods-title">
+      <section ref={panelRef} className="methodology-panel" role="dialog" aria-modal="true" aria-labelledby="methods-title">
         <div className="dialog-heading">
           <div>
             <p className="eyebrow">Methods &amp; sources</p>
             <h2 id="methods-title">What the comparisons mean</h2>
           </div>
-          <button className="icon-button" type="button" aria-label="Close methods" onClick={onClose}><CloseIcon /></button>
+          <button ref={closeButtonRef} className="icon-button" type="button" aria-label="Close methods" onClick={onClose}><CloseIcon /></button>
         </div>
         <div className="method-grid">
           <article>

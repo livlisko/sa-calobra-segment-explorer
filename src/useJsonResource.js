@@ -9,6 +9,7 @@ export function dataUrl(path) {
 
 export default function useJsonResource(path) {
   const [state, setState] = useState(() => ({
+    path,
     data: path ? cache.get(path) ?? null : null,
     loading: Boolean(path && !cache.has(path)),
     error: null,
@@ -17,14 +18,14 @@ export default function useJsonResource(path) {
   useEffect(() => {
     let active = true;
     if (!path) {
-      setState({ data: null, loading: false, error: null });
+      setState({ path, data: null, loading: false, error: null });
       return () => { active = false; };
     }
     if (cache.has(path)) {
-      setState({ data: cache.get(path), loading: false, error: null });
+      setState({ path, data: cache.get(path), loading: false, error: null });
       return () => { active = false; };
     }
-    setState({ data: null, loading: true, error: null });
+    setState({ path, data: null, loading: true, error: null });
     fetch(dataUrl(path))
       .then((response) => {
         if (!response.ok) throw new Error(`Series request returned ${response.status}.`);
@@ -32,11 +33,17 @@ export default function useJsonResource(path) {
       })
       .then((payload) => {
         cache.set(path, payload);
-        if (active) setState({ data: payload, loading: false, error: null });
+        if (active) setState({ path, data: payload, loading: false, error: null });
       })
-      .catch((error) => active && setState({ data: null, loading: false, error }));
+      .catch((error) => active && setState({ path, data: null, loading: false, error }));
     return () => { active = false; };
   }, [path]);
 
-  return state;
+  if (state.path === path) return state;
+  return {
+    path,
+    data: path ? cache.get(path) ?? null : null,
+    loading: Boolean(path && !cache.has(path)),
+    error: null,
+  };
 }

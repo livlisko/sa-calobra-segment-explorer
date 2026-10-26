@@ -57,6 +57,34 @@ export default function App() {
     if (data && selectedId) writeUrlState(view, selectedId);
   }, [data, view, selectedId]);
 
+  useEffect(() => {
+    const drawerQuery = window.matchMedia("(max-width: 1024px)");
+    const closeDrawerOutsideBreakpoint = () => {
+      if (!drawerQuery.matches) setRailOpen(false);
+    };
+    closeDrawerOutsideBreakpoint();
+    drawerQuery.addEventListener("change", closeDrawerOutsideBreakpoint);
+    return () => drawerQuery.removeEventListener("change", closeDrawerOutsideBreakpoint);
+  }, []);
+
+  useEffect(() => {
+    if (!railOpen && !methodsOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      if (methodsOpen) setMethodsOpen(false);
+      else setRailOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [railOpen, methodsOpen]);
+
   const segment = useMemo(() => data?.segments?.find((item) => item.id === selectedId), [data, selectedId]);
   const ride = useMemo(() => data?.rides?.find((item) => item.id === segment?.ride_id), [data, segment]);
   const chooseSegment = (id) => {
